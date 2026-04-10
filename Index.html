@@ -1,1 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Crude Oil Data Sources — Pipeline Plan v2</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f5f4f0;
+    color: #1a1a18;
+    padding: 2rem 1.5rem;
+    min-height: 100vh;
+  }
+  h1 {
+    font-size: 20px;
+    font-weight: 500;
+    margin-bottom: 4px;
+    color: #1a1a18;
+  }
+  .subtitle {
+    font-size: 13px;
+    color: #888780;
+    margin-bottom: 20px;
+  }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 600px) {
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  .metric {
+    background: #fff;
+    border: 0.5px solid rgba(0,0,0,0.1);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .metric-val { font-size: 22px; font-weight: 500; color: #1a1a18; }
+  .metric-lbl { font-size: 11px; color: #888780; margin-top: 2px; }
+  .filter-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .filter-label { font-size: 11px; font-weight: 500; color: #888780; text-transform: uppercase; letter-spacing: .06em; }
+  .fbtn {
+    font-size: 12px;
+    padding: 5px 13px;
+    border-radius: 20px;
+    border: 0.5px solid rgba(0,0,0,0.2);
+    background: transparent;
+    color: #5F5E5A;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+  }
+  .fbtn:hover { background: #eee; }
+  .fbtn.active { background: #E6F1FB; color: #0C447C; border-color: #185FA5; }
+  .count-bar { font-size: 12px; color: #888780; margin-bottom: 10px; }
+  .src-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .src-card {
+    background: #fff;
+    border: 0.5px solid rgba(0,0,0,0.1);
+    border-radius: 12px;
+    padding: 14px 16px;
+    transition: border-color .15s;
+  }
+  .src-card:hover { border-color: rgba(0,0,0,0.22); }
+  .src-card.upgraded { border: 1.5px solid #1D9E75; }
+  .src-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .src-name { font-size: 14px; font-weight: 500; color: #1a1a18; }
+  .badges { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .cost-badge {
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .free  { background: #EAF3DE; color: #27500A; }
+  .paid  { background: #FAEEDA; color: #633806; }
+  .sub   { background: #E6F1FB; color: #0C447C; }
+  .upgraded-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: #E1F5EE;
+    color: #085041;
+    border: 0.5px solid #1D9E75;
+    font-weight: 500;
+  }
+  .layer-label { font-size: 11px; color: #888780; margin-bottom: 7px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+  .tag {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: #f1efe8;
+    color: #888780;
+    border: 0.5px solid rgba(0,0,0,0.1);
+  }
+  .tag.has { background: #E1F5EE; color: #085041; border-color: #5DCAA5; }
+  .tag.no  { opacity: 0.38; }
+  .section-label {
+    font-size: 10px;
+    font-weight: 500;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin: 6px 0 4px;
+  }
+  .cadence-row { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+  .cad {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .cad.yes { background: #EEEDFE; color: #3C3489; }
+  .cad.no  { background: #f1efe8; color: #aaa; opacity: 0.45; }
+  .src-desc { font-size: 12px; color: #5F5E5A; margin: 4px 0 7px; line-height: 1.55; }
+  .src-note {
+    font-size: 11px;
+    color: #888780;
+    background: #f5f4f0;
+    padding: 5px 9px;
+    border-radius: 4px;
+    font-family: "SF Mono", "Fira Code", monospace;
+    margin-bottom: 6px;
+  }
+  .src-url { font-size: 11px; color: #aaa; font-family: monospace; }
+</style>
+</head>
+<body>
 
+<h1>Crude Oil Data Pipeline — Source Plan v2</h1>
+<p class="subtitle">Updated with CoinGlass subscription · All cadences 5m → 1w · Est. $80–100/mo total</p>
+
+<div class="summary-grid">
+  <div class="metric"><div class="metric-val">18</div><div class="metric-lbl">Total sources</div></div>
+  <div class="metric"><div class="metric-val">~$90</div><div class="metric-lbl">Est. monthly cost</div></div>
+  <div class="metric"><div class="metric-val">6</div><div class="metric-lbl">Cadence tiers</div></div>
+  <div class="metric"><div class="metric-val">12</div><div class="metric-lbl">Free sources</div></div>
+</div>
+
+<div class="filter-row">
+  <span class="filter-label">Filter</span>
+  <button class="fbtn active" onclick="toggleFilter('all',this)">All</button>
+  <button class="fbtn" onclick="toggleFilter('ohlc',this)">OHLC</button>
+  <button class="fbtn" onclick="toggleFilter('vol',this)">Volume</button>
+  <button class="fbtn" onclick="toggleFilter('oi',this)">Open interest</button>
+  <button class="fbtn" onclick="toggleFilter('lev',this)">Leverage</button>
+  <button class="fbtn" onclick="toggleFilter('free',this)">Free only</button>
+  <button class="fbtn" onclick="toggleFilter('rt',this)">Real-time</button>
+  <button class="fbtn" onclick="toggleFilter('upgraded',this)">Upgraded</button>
+</div>
+
+<div class="count-bar" id="count-bar">Showing all 18 sources</div>
+<div class="src-grid" id="grid"></div>
+
+<script>
+const CADS = ['5m','15m','1h','4h','1d','1w'];
+const cadMap = {'5m':5,'15m':15,'1h':1,'4h':4,'1d':'D','1w':'W'};
+
+const sources = [
+  {
+    name:'CoinGlass',
+    cost:'sub', costLabel:'Subscription',
+    url:'coinglass.com/api',
+    desc:'Aggregated OI, funding rates, liquidations, OHLC candles and long/short ratio across all exchanges. With subscription: full OHLC history, 1-week cadence, higher rate limits, and deeper OI snapshots.',
+    signals:{ohlc:true,vol:true,oi:true,lev:true,rt:true},
+    cads:{5:true,15:true,1:true,4:true,D:true,W:true},
+    layer:'Derivatives & leverage',
+    note:'Primary leverage + liquidation hub. Full OHLCV + 1w cadence unlocked with sub.',
+    upgraded:true
+  },
+  {
+    name:'CME DataMine (Globex)',
+    cost:'sub', costLabel:'~$80/mo academic',
+    url:'datamine.cmegroup.com',
+    desc:'Official NYMEX WTI futures. Best for OI + volume at tick level. Academic rate via CME Open Markets.',
+    signals:{ohlc:true,vol:true,oi:true,lev:false,rt:true},
+    cads:{5:true,15:true,1:true,4:true,D:true,W:true},
+    layer:'Futures & derivatives',
+    note:'CL contracts. Downloadable tick → resample to any cadence.',
+    upgraded:false
+  },
+  {
+    name:'Databento',
+    cost:'sub', costLabel:'Free–$49/mo',
+    url:'databento.com',
+    desc:'Clean normalized CME/ICE futures data. Tick, OHLCV, OI. Generous free tier for historical. Best value paid source.',
+    signals:{ohlc:true,vol:true,oi:true,lev:false,rt:true},
+    cads:{5:true,15:true,1:true,4:true,D:true,W:true},
+    layer:'Futures & derivatives',
+    note:'schema="ohlcv-1m" for WTI. Free 1GB/mo historical.',
+    upgraded:false
+  },
+  {
+    name:'Yahoo Finance (yfinance)',
+    cost:'free', costLabel:'Free',
+    url:'pypi.org/project/yfinance',
+    desc:'CL=F (WTI front-month), BZ=F (Brent). OHLCV at 1m minimum. No OI. Real-time 15-min delayed.',
+    signals:{ohlc:true,vol:true,oi:false,lev:false,rt:false},
+    cads:{5:true,15:true,1:true,4:true,D:true,W:true},
+    layer:'Price & OHLCV',
+    note:'yf.download("CL=F", interval="5m", period="60d")',
+    upgraded:false
+  },
+  {
+    name:'Alpha Vantage',
+    cost:'free', costLabel:'Free (25 req/day)',
+    url:'alphavantage.co',
+    desc:'WTI + Brent OHLCV intraday at 1m, 5m, 15m, 30m, 60m. Free key. Premium $50/mo for higher limits.',
+    signals:{ohlc:true,vol:true,oi:false,lev:false,rt:false},
+    cads:{5:true,15:true,1:true,4:false,D:true,W:true},
+    layer:'Price & OHLCV',
+    note:'function=TIME_SERIES_INTRADAY&symbol=USOIL&interval=5min',
+    upgraded:false
+  },
+  {
+    name:'Quandl / Nasdaq Data Link',
+    cost:'free', costLabel:'Free (daily)',
+    url:'data.nasdaq.com/data/CHRIS',
+    desc:'CHRIS/CME_CL1 = front-month WTI daily. OI and volume included. Historical back to 1983.',
+    signals:{ohlc:true,vol:true,oi:true,lev:false,rt:false},
+    cads:{5:false,15:false,1:false,4:false,D:true,W:true},
+    layer:'Price & OHLCV',
+    note:'Free API key. quandl.get("CHRIS/CME_CL1")',
+    upgraded:false
+  },
+  {
+    name:'Bybit Futures API',
+    cost:'free', costLabel:'Free',
+    url:'bybit.com/derivatives/en/api-doc',
+    desc:'USDT-margined crude oil perps. Volume, OI, funding rate (leverage proxy), liquidations. Real-time WebSocket.',
+    signals:{ohlc:true,vol:true,oi:true,lev:true,rt:true},
+    cads:{5:true,15:true,1:true,4:true,D:true,W:true},
+    layer:'Derivatives & leverage',
+    note:'GET /v5/market/kline?symbol=CRUDEOILUSDT. Funding rate = 8h leverage proxy.',
+    upgraded:false
+  },
+  {
+    name:'OKX / Gate.io',
+    cost:'free', costLabel:'Free',
+    url:'okx.com/docs-v5/en/',
+    desc:'Commodity futures on crypto exchanges. OHLCV, OI, funding rate, liquidation map, long/short ratio. REST + WebSocket.',
+    signals:{ohlc:true,vol:true,oi:true,lev:true,rt:true},
+    cads:{5:true,15:true,1:true,4:true,D:true,W:true},
+    layer:'Derivatives & leverage',
+    note:'Liquidation data = best free leverage signal. Pairs with CoinGlass aggregation.',
+    upgraded:false
+  },
+  {
+    name:'CFTC COT Report',
+    cost:'free', costLabel:'Free',
+    url:'cftc.gov/dea/futures/deacmesf.htm',
+    desc:'Commitment of Traders — managed money long/short, producer hedging, swap dealer net. Closest to institutional leverage data for NYMEX WTI.',
+    signals:{ohlc:false,vol:false,oi:true,lev:true,rt:false},
+    cads:{5:false,15:false,1:false,4:false,D:false,W:true},
+    layer:'Derivatives & leverage',
+    note:'Weekly CSV every Friday. Essential 1w anchor feature for the weekly model.',
+    upgraded:false
+  },
+  {
+    name:'EIA Open Data API',
+    cost:'free', costLabel:'Free',
+    url:'eia.gov/opendata',
+    desc:'Official US spot prices, inventory, production. Daily/weekly. PET.RWTC.D (WTI daily). Weekly inventory every Wednesday at 10:30 ET.',
+    signals:{ohlc:false,vol:false,oi:false,lev:false,rt:false},
+    cads:{5:false,15:false,1:false,4:false,D:true,W:true},
+    layer:'Supply & macro',
+    note:'Free API key. JSON response. Schedule Wednesday 10:30 ET cron.',
+    upgraded:false
+  },
+  {
+    name:'FRED (St Louis Fed)',
+    cost:'free', costLabel:'Free',
+    url:'fred.stlouisfed.org',
+    desc:'Macro context: DXY, CPI, industrial production, interest rates, GDP. Daily to monthly. Core macro feature set.',
+    signals:{ohlc:false,vol:false,oi:false,lev:false,rt:false},
+    cads:{5:false,15:false,1:false,4:false,D:true,W:true},
+    layer:'Supply & macro',
+    note:'Series: DCOILWTICO, DTWEXBGS (DXY), CPIAUCSL. pip install fredapi.',
+    upgraded:false
+  },
+  {
+    name:'JODI Oil World Database',
+    cost:'free', costLabel:'Free',
+    url:'jodidata.org',
+    desc:'120+ countries monthly oil stats — production, imports, exports, stocks. Best supply/demand balance anchor.',
+    signals:{ohlc:false,vol:true,oi:false,lev:false,rt:false},
+    cads:{5:false,15:false,1:false,4:false,D:false,W:false},
+    layer:'Supply & macro',
+    note:'Monthly cadence only. CSV download. Low-freq macro anchor.',
+    upgraded:false
+  },
+  {
+    name:'GPR Index',
+    cost:'free', costLabel:'Free',
+    url:'policyuncertainty.com/gpr.html',
+    desc:'Geopolitical Risk index from 1900 to present. Daily and monthly variants. Strong leading signal for oil price spikes.',
+    signals:{ohlc:false,vol:false,oi:false,lev:false,rt:false},
+    cads:{5:false,15:false,1:false,4:false,D:true,W:true},
+    layer:'Sentiment & macro',
+    note:'Download Excel. Resample daily GPR to target cadence as context feature.',
+    upgraded:false
+  },
+  {
+    name:'GDELT Project',
+    cost:'free', costLabel:'Free',
+    url:'gdeltproject.org',
+    desc:'Global event database updated every 15 min. CAMEO codes for energy geopolitics. Sentiment and event intensity scores.',
+    signals:{ohlc:false,vol:false,oi:false,lev:false,rt:true},
+    cads:{5:false,15:true,1:true,4:true,D:true,W:true},
+    layer:'Sentiment & macro',
+    note:'BigQuery public dataset. Filter CAMEO EventCode for oil/energy events.',
+    upgraded:false
+  },
+  {
+    name:'PortWatch (IMF + Oxford)',
+    cost:'free', costLabel:'Free',
+    url:'portwatch.imf.org',
+    desc:'Satellite-derived port throughput at 1000+ global ports. Weekly cadence. Key shipping demand signal for oil terminals.',
+    signals:{ohlc:false,vol:true,oi:false,lev:false,rt:false},
+    cads:{5:false,15:false,1:false,4:false,D:false,W:true},
+    layer:'Ship & port',
+    note:'Filter: Ras Tanura, Fujairah, Rotterdam, Cushing area terminals.',
+    upgraded:false
+  },
+  {
+    name:'MarineTraffic API',
+    cost:'sub', costLabel:'Free tier / ~$50/mo',
+    url:'marinetraffic.com/en/ais/api',
+    desc:'AIS tanker positions, voyage data, port calls. Free tier: 1000 credits/mo. Real-time vessel tracking for supply signal.',
+    signals:{ohlc:false,vol:true,oi:false,lev:false,rt:true},
+    cads:{5:false,15:false,1:true,4:true,D:true,W:true},
+    layer:'Ship & port',
+    note:'vessel_type=80-89 (tankers). Fleet clustering near terminals = volume signal.',
+    upgraded:false
+  },
+  {
+    name:'Sentinelsat / ESA Copernicus',
+    cost:'free', costLabel:'Free',
+    url:'scihub.copernicus.eu',
+    desc:'Free SAR + optical satellite imagery. Build oil tank shadow models for storage estimation. Weekly Sentinel-1 revisit.',
+    signals:{ohlc:false,vol:false,oi:false,lev:false,rt:false},
+    cads:{5:false,15:false,1:false,4:false,D:false,W:true},
+    layer:'Satellite storage',
+    note:'sentinelsat Python lib. SAR floating roof shadow = storage proxy. 3-5 day EIA lead.',
+    upgraded:false
+  },
+  {
+    name:'Polygon.io',
+    cost:'sub', costLabel:'Free–$79/mo',
+    url:'polygon.io',
+    desc:'Clean REST + WebSocket for futures. OHLCV + trades. Starter $29/mo gives 15-min delay; $79 real-time.',
+    signals:{ohlc:true,vol:true,oi:false,lev:false,rt:true},
+    cads:{5:true,15:true,1:true,4:true,D:true,W:true},
+    layer:'Price & OHLCV',
+    note:'/v2/aggs/ticker/CL:NYMEX/range/5/minute. Good backup to Databento.',
+    upgraded:false
+  },
+];
+
+let activeFilter = 'all';
+
+function renderCard(s) {
+  const cads = CADS.map(c => {
+    const key = cadMap[c];
+    return `<span class="cad ${s.cads[key] ? 'yes' : 'no'}">${c}</span>`;
+  }).join('');
+  const sigLabels = {ohlc:'OHLC', vol:'Volume', oi:'Open int.', lev:'Leverage'};
+  const sigs = Object.keys(sigLabels).map(k =>
+    `<span class="tag ${s.signals[k] ? 'has' : 'no'}">${sigLabels[k]}</span>`
+  ).join('');
+  const rtTag = s.signals.rt ? `<span class="tag has">Real-time</span>` : '';
+  const upBadge = s.upgraded ? `<span class="upgraded-badge">Upgraded</span>` : '';
+  return `<div class="src-card ${s.upgraded ? 'upgraded' : ''}">
+    <div class="src-head">
+      <span class="src-name">${s.name}</span>
+      <div class="badges">${upBadge}<span class="cost-badge ${s.cost}">${s.costLabel}</span></div>
+    </div>
+    <div class="layer-label">${s.layer}</div>
+    <div class="tags">${sigs}${rtTag}</div>
+    <div class="section-label">Cadences</div>
+    <div class="cadence-row">${cads}</div>
+    <div class="src-desc">${s.desc}</div>
+    <div class="src-note">${s.note}</div>
+    <div class="src-url">${s.url}</div>
+  </div>`;
+}
+
+function render() {
+  let filtered = sources;
+  if (activeFilter === 'free')     filtered = sources.filter(s => s.cost === 'free');
+  else if (activeFilter === 'rt')       filtered = sources.filter(s => s.signals.rt);
+  else if (activeFilter === 'ohlc')     filtered = sources.filter(s => s.signals.ohlc);
+  else if (activeFilter === 'vol')      filtered = sources.filter(s => s.signals.vol);
+  else if (activeFilter === 'oi')       filtered = sources.filter(s => s.signals.oi);
+  else if (activeFilter === 'lev')      filtered = sources.filter(s => s.signals.lev);
+  else if (activeFilter === 'upgraded') filtered = sources.filter(s => s.upgraded);
+  document.getElementById('grid').innerHTML = filtered.map(renderCard).join('');
+  document.getElementById('count-bar').textContent =
+    `Showing ${filtered.length} of ${sources.length} sources`;
+}
+
+function toggleFilter(f, btn) {
+  activeFilter = f;
+  document.querySelectorAll('.fbtn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
